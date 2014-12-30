@@ -18,7 +18,7 @@ func init() {
 
 func TestParse(t *testing.T) {
 	var err error
-	g, err = Parse("testdata/file.gpx")
+	g, err = ParseFile("testdata/file.gpx")
 
 	if err != nil {
 		t.Error("Error parsing GPX file: ", err)
@@ -37,7 +37,7 @@ func TestParse(t *testing.T) {
 		t.Errorf("Trackname expected: %s, actual: %s", trknameE, trknameA)
 	}
 
-	numPointsA := len(g.Tracks[0].Segments[0].Points)
+	numPointsA := len(g.Tracks[0].Segments[0].Waypoints)
 	numPointsE := 4
 	if numPointsE != numPointsA {
 		t.Errorf("Number of tracks expected: %d, actual: %d", numPointsE, numPointsA)
@@ -62,17 +62,8 @@ func TestLength3DSeg(t *testing.T) {
 	}
 }
 
-func TestGetTime(t *testing.T) {
-	timestampA := getTime("2012-03-17T12:46:19Z")
-	timestampE := time.Date(2012, 3, 17, 12, 46, 19, 0, time.UTC)
-
-	if timestampA != timestampE {
-		t.Errorf("Time expected: %s, actual: %s", timestampE.String(), timestampA.String())
-	}
-}
-
 func TestTimePoint(t *testing.T) {
-	timeA := g.Tracks[0].Segments[0].Points[0].Time()
+	timeA := g.Tracks[0].Segments[0].Waypoints[0].Time()
 	//2012-03-17T12:46:19Z
 	timeE := time.Date(2012, 3, 17, 12, 46, 19, 0, time.UTC)
 
@@ -82,14 +73,12 @@ func TestTimePoint(t *testing.T) {
 }
 
 func TestTimeBoundsSeg(t *testing.T) {
-	timeBoundsA := g.Tracks[0].Segments[0].TimeBounds()
-	timeBoundsE := TimeBounds{
-		StartTime: time.Date(2012, 3, 17, 12, 46, 19, 0, time.UTC),
-		EndTime:   time.Date(2012, 3, 17, 12, 47, 23, 0, time.UTC),
-	}
+	startA, endA := g.Tracks[0].Segments[0].TimeBounds()
+	startE := time.Date(2012, 3, 17, 12, 46, 19, 0, time.UTC)
+	endE := time.Date(2012, 3, 17, 12, 47, 23, 0, time.UTC)
 
-	if timeBoundsE != *timeBoundsA {
-		t.Errorf("TimeBounds expected: %s, actual: %s", timeBoundsE.String(), timeBoundsA.String())
+	if startA != startE || endA != endE {
+		t.Errorf("TimeBounds expected: %v, %v, actual: %v, %v", startE, endE, startA, endA)
 	}
 }
 
@@ -136,13 +125,12 @@ func TestDurationSeg(t *testing.T) {
 }
 
 func TestUphillDownHillSeg(t *testing.T) {
-	updoA := g.Tracks[0].Segments[0].UphillDownhill()
-	updoE := UphillDownhill{
-		Uphill:   5.863000000000007,
-		Downhill: 1.5430000000000064}
+	upA, downA := g.Tracks[0].Segments[0].UphillDownhill()
+	upE := 5.863000000000007
+	downE := 1.5430000000000064
 
-	if updoE != *updoA {
-		t.Errorf("UphillDownhill expected: %+v, actual: %+v", updoE, updoA)
+	if upA != upE || downA != downE {
+		t.Errorf("UphillDownhill expected: %+v, %+v, actual: %+v, %+v", upA, downA, upE, downE)
 	}
 }
 
@@ -162,13 +150,12 @@ func TestMovingData(t *testing.T) {
 }
 
 func TestUphillDownhill(t *testing.T) {
-	updoA := g.UphillDownhill()
-	updoE := UphillDownhill{
-		Uphill:   5.863000000000007,
-		Downhill: 1.5430000000000064}
+	upA, downA := g.UphillDownhill()
+	upE := 5.863000000000007
+	downE := 1.5430000000000064
 
-	if updoE != *updoA {
-		t.Errorf("UphillDownhill expected: %+v, actual: %+v", updoE, updoA)
+	if upA != upE || downA != downE {
+		t.Errorf("UphillDownhill expected: %+v, %+v, actual: %+v, %+v", upA, downA, upE, downE)
 	}
 }
 
@@ -227,9 +214,9 @@ func TestNewXml(t *testing.T) {
 	gpxTrack := Trk{}
 
 	gpxSegment := Trkseg{}
-	gpxSegment.Points = append(gpxSegment.Points, Wpt{Lat: 2.1234, Lon: 5.1234, Ele: 1234})
-	gpxSegment.Points = append(gpxSegment.Points, Wpt{Lat: 2.1233, Lon: 5.1235, Ele: 1235})
-	gpxSegment.Points = append(gpxSegment.Points, Wpt{Lat: 2.1235, Lon: 5.1236, Ele: 1236})
+	gpxSegment.Waypoints = append(gpxSegment.Waypoints, Wpt{Lat: 2.1234, Lon: 5.1234, Ele: 1234})
+	gpxSegment.Waypoints = append(gpxSegment.Waypoints, Wpt{Lat: 2.1233, Lon: 5.1235, Ele: 1235})
+	gpxSegment.Waypoints = append(gpxSegment.Waypoints, Wpt{Lat: 2.1235, Lon: 5.1236, Ele: 1236})
 
 	gpxTrack.Segments = append(gpxTrack.Segments, gpxSegment)
 	gpx.Tracks = append(gpx.Tracks, gpxTrack)

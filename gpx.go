@@ -395,7 +395,7 @@ func (g *Gpx) UphillDownhill() (uphill, downhill float64) {
 // LocationAt returns a slice of Wpts for a certain time.
 func (g *Gpx) LocationAt(t time.Time) []Wpt {
 	var results []Wpt
-	for _, trk := range g.Tracks{
+	for _, trk := range g.Tracks {
 		locs := trk.LocationAt(t)
 		results = append(results, locs...)
 	}
@@ -550,7 +550,7 @@ func (trk *Trk) UphillDownhill() (uphill, downhill float64) {
 // LocationAt returns a slice of Wpt for a given time.
 func (trk *Trk) LocationAt(t time.Time) []Wpt {
 	var results []Wpt
-	for _, seg := range trk.Segments{
+	for _, seg := range trk.Segments {
 		loc := seg.LocationAt(t)
 		if loc != -1 {
 			results = append(results, seg.Waypoints[loc])
@@ -587,7 +587,7 @@ func (w Waypoints) TimeBounds() (start, end time.Time) {
 			break
 		}
 	}
-	for i := len(w)-1; i >= 0; i-- {
+	for i := len(w) - 1; i >= 0; i-- {
 		if w[i].Timestamp != "" {
 			end = w[i].Time()
 			break
@@ -683,7 +683,7 @@ func (w Waypoints) Elevations() []float64 {
 }
 
 // UphillDownhill returns uphill and dowhill in a GPX segment.
-func (w Waypoints) UphillDownhill() (uphill, downhill float64)  {
+func (w Waypoints) UphillDownhill() (uphill, downhill float64) {
 	return calcUphillDownhill(w.Elevations())
 }
 

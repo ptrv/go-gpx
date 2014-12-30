@@ -17,7 +17,6 @@ import (
 
 /*==========================================================*/
 
-const timelayout = "2006-01-02T15:04:05Z"
 const defaultStoppedSpeedThreshold = 1.0
 
 /*==========================================================*/
@@ -152,18 +151,6 @@ type Bounds struct {
 
 /*==========================================================*/
 
-// TimeBounds represents a start/end time range
-type TimeBounds struct {
-	StartTime time.Time
-	EndTime   time.Time
-}
-
-// UphillDownhill represents an uphill/downhill range
-type UphillDownhill struct {
-	Uphill   float64
-	Downhill float64
-}
-
 // MovingData represents moving data
 type MovingData struct {
 	MovingTime      float64
@@ -173,16 +160,10 @@ type MovingData struct {
 	MaxSpeed        float64
 }
 
-// SpeedsAndDistances represents speed and distance
-type SpeedsAndDistances struct {
-	Speed    float64
-	Distance float64
-}
-
-// LocationsResultPair represents a result from location query
-type LocationsResultPair struct {
-	SegmentNo int
-	PointNo   int
+// speedsAndDistances represents speed and distance
+type speedsAndDistances struct {
+	speed    float64
+	distance float64
 }
 
 /*==========================================================*/
@@ -210,14 +191,6 @@ func ParseFile(filepath string) (*Gpx, error) {
 
 /*==========================================================*/
 
-func getTime(timestr string) time.Time {
-	t, err := time.Parse(timelayout, timestr)
-	if err != nil {
-		return time.Time{}
-	}
-	return t
-}
-
 func toXML(n interface{}) []byte {
 	content, _ := xml.MarshalIndent(n, "", "	")
 	return content
@@ -233,10 +206,6 @@ func maxBounds() *Bounds {
 }
 
 /*==========================================================*/
-
-func (tb *TimeBounds) String() string {
-	return fmt.Sprintf("%+v, %+v", tb.StartTime, tb.EndTime)
-}
 
 func (b *Bounds) merge(b2 *Bounds) {
 	b.MaxLat = math.Max(b.MaxLat, b2.MaxLat)
@@ -338,17 +307,13 @@ func (g *Gpx) Length3D() float64 {
 }
 
 // TimeBounds returns the time bounds of all tacks in a Gpx.
-func (g *Gpx) TimeBounds() *TimeBounds {
-	var tbGpx *TimeBounds
-	for i, trk := range g.Tracks {
-		tbTrk := trk.TimeBounds()
-		if i == 0 {
-			tbGpx = trk.TimeBounds()
-		} else {
-			tbGpx.EndTime = tbTrk.EndTime
-		}
+func (g *Gpx) TimeBounds() (start, end time.Time) {
+	if len(g.Tracks) == 0 {
+		return
 	}
-	return tbGpx
+	start, _ = g.Tracks[0].TimeBounds()
+	_, end = g.Tracks[len(g.Tracks)-1].TimeBounds()
+	return start, end
 }
 
 // Bounds returns the bounds of all tracks in a Gpx.
@@ -418,39 +383,21 @@ func (g *Gpx) Duration() float64 {
 
 // UphillDownhill returns uphill and downhill values for all tracks in a
 // Gpx.
-func (g *Gpx) UphillDownhill() *UphillDownhill {
-	if len(g.Tracks) == 0 {
-		return nil
-	}
-
-	var (
-		uphill   float64
-		downhill float64
-	)
-
+func (g *Gpx) UphillDownhill() (uphill, downhill float64) {
 	for _, trk := range g.Tracks {
-		updo := trk.UphillDownhill()
-
-		uphill += updo.Uphill
-		downhill += updo.Downhill
+		up, do := trk.UphillDownhill()
+		uphill += up
+		downhill += do
 	}
-
-	return &UphillDownhill{
-		Uphill:   uphill,
-		Downhill: downhill,
-	}
+	return
 }
 
-// LocationAt returns a LocationResultsPair consisting the segment index
-// and the GpxWpt at a certain time.
-func (g *Gpx) LocationAt(t time.Time) []LocationsResultPair {
-	var results []LocationsResultPair
-
-	for _, trk := range g.Tracks {
+// LocationAt returns a slice of Wpts for a certain time.
+func (g *Gpx) LocationAt(t time.Time) []Wpt {
+	var results []Wpt
+	for _, trk := range g.Tracks{
 		locs := trk.LocationAt(t)
-		if len(locs) > 0 {
-			results = append(results, locs...)
-		}
+		results = append(results, locs...)
 	}
 	return results
 }
@@ -484,18 +431,13 @@ func (trk *Trk) Length3D() float64 {
 }
 
 // TimeBounds returns the time bounds of a GPX track.
-func (trk *Trk) TimeBounds() *TimeBounds {
-	var tbTrk *TimeBounds
-
-	for i, seg := range trk.Segments {
-		tbSeg := seg.TimeBounds()
-		if i == 0 {
-			tbTrk = tbSeg
-		} else {
-			tbTrk.EndTime = tbSeg.EndTime
-		}
+func (trk *Trk) TimeBounds() (start, end time.Time) {
+	if len(trk.Segments) == 0 {
+		return
 	}
-	return tbTrk
+	start, _ = trk.Segments[0].TimeBounds()
+	_, end = trk.Segments[len(trk.Segments)-1].TimeBounds()
+	return start, end
 }
 
 // Bounds returns the bounds of a GPX track.
@@ -596,34 +538,22 @@ func (trk *Trk) Duration() float64 {
 }
 
 // UphillDownhill return the uphill and downhill values of a GPX track.
-func (trk *Trk) UphillDownhill() *UphillDownhill {
-	var (
-		uphill   float64
-		downhill float64
-	)
-
+func (trk *Trk) UphillDownhill() (uphill, downhill float64) {
 	for _, seg := range trk.Segments {
-		updo := seg.UphillDownhill()
-
-		uphill += updo.Uphill
-		downhill += updo.Downhill
+		up, do := seg.UphillDownhill()
+		uphill += up
+		downhill += do
 	}
-
-	return &UphillDownhill{
-		Uphill:   uphill,
-		Downhill: downhill,
-	}
+	return
 }
 
-// LocationAt returns a LocationResultsPair for a given time.
-func (trk *Trk) LocationAt(t time.Time) []LocationsResultPair {
-	var results []LocationsResultPair
-
-	for i := 0; i < len(trk.Segments); i++ {
-		seg := trk.Segments[i]
+// LocationAt returns a slice of Wpt for a given time.
+func (trk *Trk) LocationAt(t time.Time) []Wpt {
+	var results []Wpt
+	for _, seg := range trk.Segments{
 		loc := seg.LocationAt(t)
 		if loc != -1 {
-			results = append(results, LocationsResultPair{i, loc})
+			results = append(results, seg.Waypoints[loc])
 		}
 	}
 	return results
@@ -650,22 +580,20 @@ func (w Waypoints) Length3D() float64 {
 }
 
 // TimeBounds returns the time bounds of a GPX segment.
-func (w Waypoints) TimeBounds() *TimeBounds {
-	var timeTuple []time.Time
-
-	for _, trkpt := range w {
-		if trkpt.Timestamp != "" {
-			if len(timeTuple) < 2 {
-				timeTuple = append(timeTuple, trkpt.Time())
-			} else {
-				timeTuple[1] = trkpt.Time()
-			}
+func (w Waypoints) TimeBounds() (start, end time.Time) {
+	for i := range w {
+		if w[i].Timestamp != "" {
+			start = w[i].Time()
+			break
 		}
 	}
-	if len(timeTuple) == 2 {
-		return &TimeBounds{StartTime: timeTuple[0], EndTime: timeTuple[1]}
+	for i := len(w)-1; i >= 0; i-- {
+		if w[i].Timestamp != "" {
+			end = w[i].Time()
+			break
+		}
 	}
-	return nil
+	return
 }
 
 // Bounds returns the bounds of a GPX segment.
@@ -755,31 +683,23 @@ func (w Waypoints) Elevations() []float64 {
 }
 
 // UphillDownhill returns uphill and dowhill in a GPX segment.
-func (w Waypoints) UphillDownhill() *UphillDownhill {
-	if len(w) == 0 {
-		return nil
-	}
-
-	uphill, downhill := calcUphillDownhill(w.Elevations())
-
-	return &UphillDownhill{Uphill: uphill, Downhill: downhill}
+func (w Waypoints) UphillDownhill() (uphill, downhill float64)  {
+	return calcUphillDownhill(w.Elevations())
 }
 
-// LocationAt returns the GpxWpt at a given time.
+// LocationAt returns the Wpt at a given time.
 func (w Waypoints) LocationAt(t time.Time) int {
-	lenPts := len(w)
-	if lenPts == 0 {
+	if len(w) == 0 {
 		return -1
 	}
 	firstT := w[0]
-	lastT := w[lenPts-1]
+	lastT := w[len(w)-1]
 	if firstT.Time().Equal(lastT.Time()) || firstT.Time().After(lastT.Time()) {
 		return -1
 	}
 
-	for i := 0; i < len(w); i++ {
-		pt := w[i]
-		if t.Before(pt.Time()) {
+	for i := range w {
+		if t.Before(w[i].Time()) {
 			return i
 		}
 	}
@@ -796,7 +716,7 @@ func (w Waypoints) MovingData() *MovingData {
 		stoppedDistance float64
 	)
 
-	var speedsDistances []SpeedsAndDistances
+	var speedsDistances []speedsAndDistances
 
 	for i := 1; i < len(w); i++ {
 		prev := &w[i-1]
@@ -819,7 +739,7 @@ func (w Waypoints) MovingData() *MovingData {
 			movingTime += timedelta.Seconds()
 			movingDistance += dist
 
-			sd := SpeedsAndDistances{dist / timedelta.Seconds(), dist}
+			sd := speedsAndDistances{dist / timedelta.Seconds(), dist}
 			speedsDistances = append(speedsDistances, sd)
 		}
 	}
@@ -857,7 +777,11 @@ func (w Waypoints) Center() (lat, lon float64) {
 
 // Time returns a timestamp string as Time object.
 func (pt *Wpt) Time() time.Time {
-	return getTime(pt.Timestamp)
+	t, err := time.Parse(time.RFC3339, pt.Timestamp)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 // TimeDiff returns the time difference of two GpxWpts in seconds.

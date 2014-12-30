@@ -12,19 +12,19 @@ import (
 const oneDegree = 1000.0 * 10000.8 / 90.0
 const earthRadius = 6371 * 1000
 
-// ToRad converts degree to radian
-func ToRad(x float64) float64 {
+// toRad converts degree to radian
+func toRad(x float64) float64 {
 	return x / 180. * math.Pi
 }
 
 // HaversineDistance returns the haversine distance between two points.
 //
 // Implemented from http://www.movable-type.co.uk/scripts/latlong.html
-func HaversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
-	dLat := ToRad(lat1 - lat2)
-	dLon := ToRad(lon1 - lon2)
-	thisLat1 := ToRad(lat1)
-	thisLat2 := ToRad(lat2)
+func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	dLat := toRad(lat1 - lat2)
+	dLon := toRad(lon1 - lon2)
+	thisLat1 := toRad(lat1)
+	thisLat2 := toRad(lat2)
 
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) + math.Sin(dLon/2)*math.Sin(dLon/2)*math.Cos(thisLat1)*math.Cos(thisLat2)
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
@@ -34,7 +34,7 @@ func HaversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 }
 
 // calcMaxSpeed calculates the max speed
-func calcMaxSpeed(speedsDistances []SpeedsAndDistances) float64 {
+func calcMaxSpeed(speedsDistances []speedsAndDistances) float64 {
 	lenArrs := len(speedsDistances)
 
 	if len(speedsDistances) < 20 {
@@ -44,20 +44,20 @@ func calcMaxSpeed(speedsDistances []SpeedsAndDistances) float64 {
 
 	var sumDists float64
 	for _, d := range speedsDistances {
-		sumDists += d.Distance
+		sumDists += d.distance
 	}
 	averageDist := sumDists / float64(lenArrs)
 
 	var variance float64
 	for i := 0; i < len(speedsDistances); i++ {
-		variance += math.Pow(speedsDistances[i].Distance-averageDist, 2)
+		variance += math.Pow(speedsDistances[i].distance-averageDist, 2)
 	}
 	stdDeviation := math.Sqrt(variance)
 
 	// ignore items with distance too long
-	var filteredSD []SpeedsAndDistances
+	var filteredSD []speedsAndDistances
 	for i := 0; i < len(speedsDistances); i++ {
-		dist := math.Abs(speedsDistances[i].Distance - averageDist)
+		dist := math.Abs(speedsDistances[i].distance - averageDist)
 		if dist <= stdDeviation*1.5 {
 			filteredSD = append(filteredSD, speedsDistances[i])
 		}
@@ -65,7 +65,7 @@ func calcMaxSpeed(speedsDistances []SpeedsAndDistances) float64 {
 
 	speeds := make([]float64, len(filteredSD))
 	for i, sd := range filteredSD {
-		speeds[i] = sd.Speed
+		speeds[i] = sd.speed
 	}
 
 	speedsSorted := sort.Float64Slice(speeds)
@@ -118,10 +118,10 @@ func distance(lat1, lon1, ele1, lat2, lon2, ele2 float64, threeD, haversine bool
 	absLat := math.Abs(lat1 - lat2)
 	absLon := math.Abs(lon1 - lon2)
 	if haversine || absLat > 0.2 || absLon > 0.2 {
-		return HaversineDistance(lat1, lon1, lat2, lon2)
+		return haversineDistance(lat1, lon1, lat2, lon2)
 	}
 
-	coef := math.Cos(ToRad(lat1))
+	coef := math.Cos(toRad(lat1))
 	x := lat1 - lat2
 	y := (lon1 - lon2) * coef
 
@@ -132,16 +132,6 @@ func distance(lat1, lon1, ele1, lat2, lon2, ele2 float64, threeD, haversine bool
 	}
 
 	return math.Sqrt(math.Pow(distance2d, 2) + math.Pow((ele1-ele2), 2))
-}
-
-// Distance2D calculates the 2D distance of a given lat/lon pair
-func Distance2D(lat1, lon1, lat2, lon2 float64, haversine bool) float64 {
-	return distance(lat1, lon1, 0.0, lat2, lon2, 0.0, false, haversine)
-}
-
-// Distance3D calculates the 3D distance of a given lat/lon pair
-func Distance3D(lat1, lon1, ele1, lat2, lon2, ele2 float64, haversine bool) float64 {
-	return distance(lat1, lon1, ele1, lat2, lon2, ele2, true, haversine)
 }
 
 // ElevationAngle calculates the elavation angle

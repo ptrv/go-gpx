@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"os"
 	"time"
@@ -22,10 +22,13 @@ const defaultStoppedSpeedThreshold = 1.0
 
 /*==========================================================*/
 
+// Waypoints is a collection of waypoints whether in a track, a route, or standalone.
+type Waypoints []Wpt
+
 // Trkseg is a GPX track segment
 type Trkseg struct {
-	XMLName xml.Name `xml:"trkseg"`
-	Points  []Wpt    `xml:"trkpt"`
+	XMLName   xml.Name `xml:"trkseg"`
+	Waypoints `xml:"trkpt"`
 }
 
 // Trk is a GPX track
@@ -70,15 +73,15 @@ type Wpt struct {
 
 // Rte is a GPX Route
 type Rte struct {
-	XMLName     xml.Name `xml:"rte"`
-	Name        string   `xml:"name,omitempty"`
-	Cmt         string   `xml:"cmt,omitempty"`
-	Desc        string   `xml:"desc,omitempty"`
-	Src         string   `xml:"src,omitempty"`
-	Links       []Link   `xml:"link"`
-	Number      int      `xml:"number,omitempty"`
-	Type        string   `xml:"type,omitempty"`
-	RoutePoints []Wpt    `xml:"rtept"`
+	XMLName   xml.Name `xml:"rte"`
+	Name      string   `xml:"name,omitempty"`
+	Cmt       string   `xml:"cmt,omitempty"`
+	Desc      string   `xml:"desc,omitempty"`
+	Src       string   `xml:"src,omitempty"`
+	Links     []Link   `xml:"link"`
+	Number    int      `xml:"number,omitempty"`
+	Type      string   `xml:"type,omitempty"`
+	Waypoints `xml:"rtept"`
 }
 
 // Link is a GPX link
@@ -133,7 +136,7 @@ type Gpx struct {
 	Version      string    `xml:"version,attr"`
 	Creator      string    `xml:"creator,attr"`
 	Metadata     *Metadata `xml:"metadata,omitempty"`
-	Waypoints    []Wpt     `xml:"wpt,omitempty"`
+	Waypoints    Waypoints `xml:"wpt,omitempty"`
 	Routes       []Rte     `xml:"rte,omitempty"`
 	Tracks       []Trk     `xml:"trk"`
 }
@@ -466,8 +469,7 @@ func (g *Gpx) ToXML() []byte {
 func (trk *Trk) Length2D() float64 {
 	var l float64
 	for _, seg := range trk.Segments {
-		d := seg.Length2D()
-		l += d
+		l += seg.Length2D()
 	}
 	return l
 }
@@ -476,8 +478,7 @@ func (trk *Trk) Length2D() float64 {
 func (trk *Trk) Length3D() float64 {
 	var l float64
 	for _, seg := range trk.Segments {
-		d := seg.Length3D()
-		l += d
+		l += seg.Length3D()
 	}
 	return l
 }
@@ -517,7 +518,7 @@ func (trk *Trk) Split(segNo, ptNo int) {
 	for i := 0; i < lenSegs; i++ {
 		seg := trk.Segments[i]
 
-		if i == segNo && ptNo < len(seg.Points) {
+		if i == segNo && ptNo < len(seg.Waypoints) {
 			seg1, seg2 := seg.Split(ptNo)
 			newSegs = append(newSegs, *seg1, *seg2)
 		} else {
@@ -587,10 +588,6 @@ func (trk *Trk) MovingData() *MovingData {
 
 // Duration returns the duration of a GPX track.
 func (trk *Trk) Duration() float64 {
-	if len(trk.Segments) == 0 {
-		return 0.0
-	}
-
 	var result float64
 	for _, seg := range trk.Segments {
 		result += seg.Duration()
@@ -600,10 +597,6 @@ func (trk *Trk) Duration() float64 {
 
 // UphillDownhill return the uphill and downhill values of a GPX track.
 func (trk *Trk) UphillDownhill() *UphillDownhill {
-	if len(trk.Segments) == 0 {
-		return nil
-	}
-
 	var (
 		uphill   float64
 		downhill float64
@@ -639,20 +632,28 @@ func (trk *Trk) LocationAt(t time.Time) []LocationsResultPair {
 /*==========================================================*/
 
 // Length2D returns the 2D length of a GPX segment.
-func (seg *Trkseg) Length2D() float64 {
-	return Length2D(seg.Points)
+func (w Waypoints) Length2D() float64 {
+	var res float64
+	for i := 1; i < len(w); i++ {
+		res += w[i].Distance2D(&w[i-1])
+	}
+	return res
 }
 
 // Length3D returns the 3D length of a GPX segment.
-func (seg *Trkseg) Length3D() float64 {
-	return Length3D(seg.Points)
+func (w Waypoints) Length3D() float64 {
+	var res float64
+	for i := 1; i < len(w); i++ {
+		res += w[i].Distance3D(&w[i-1])
+	}
+	return res
 }
 
 // TimeBounds returns the time bounds of a GPX segment.
-func (seg *Trkseg) TimeBounds() *TimeBounds {
+func (w Waypoints) TimeBounds() *TimeBounds {
 	var timeTuple []time.Time
 
-	for _, trkpt := range seg.Points {
+	for _, trkpt := range w {
 		if trkpt.Timestamp != "" {
 			if len(timeTuple) < 2 {
 				timeTuple = append(timeTuple, trkpt.Time())
@@ -668,7 +669,7 @@ func (seg *Trkseg) TimeBounds() *TimeBounds {
 }
 
 // Bounds returns the bounds of a GPX segment.
-func (seg *Trkseg) Bounds() *Bounds {
+func (w Waypoints) Bounds() *Bounds {
 	b := maxBounds()
 	for _, pt := range w {
 		b.merge(&Bounds{
@@ -680,13 +681,13 @@ func (seg *Trkseg) Bounds() *Bounds {
 }
 
 // Speed returns the speed at point number in a GPX segment.
-func (seg *Trkseg) Speed(pointIdx int) float64 {
-	trkptsLen := len(seg.Points)
+func (w Waypoints) Speed(pointIdx int) float64 {
+	trkptsLen := len(w)
 	if pointIdx >= trkptsLen {
 		pointIdx = trkptsLen - 1
 	}
 
-	point := seg.Points[pointIdx]
+	point := w[pointIdx]
 
 	var prevPt *Wpt
 	var nextPt *Wpt
@@ -694,12 +695,12 @@ func (seg *Trkseg) Speed(pointIdx int) float64 {
 	havePrev := false
 	haveNext := false
 	if 0 < pointIdx && pointIdx < trkptsLen {
-		prevPt = &seg.Points[pointIdx-1]
+		prevPt = &w[pointIdx-1]
 		havePrev = true
 	}
 
 	if 0 < pointIdx && pointIdx < trkptsLen-1 {
-		nextPt = &seg.Points[pointIdx+1]
+		nextPt = &w[pointIdx+1]
 		haveNext = true
 	}
 
@@ -728,77 +729,56 @@ func (seg *Trkseg) Speed(pointIdx int) float64 {
 }
 
 // Duration returns the duration in seconds in a GPX segment.
-func (seg *Trkseg) Duration() float64 {
-	trksLen := len(seg.Points)
-	if trksLen == 0 {
+func (w Waypoints) Duration() float64 {
+	if len(w) == 0 {
 		return 0.0
 	}
 
-	first := seg.Points[0]
-	last := seg.Points[trksLen-1]
+	first := w[0]
+	last := w[len(w)-1]
 
-	if first.Time().Equal(last.Time()) {
-		return 0.0
-	}
-
-	if last.Time().Before(first.Time()) {
+	if last.Time().Equal(first.Time()) ||
+		last.Time().Before(first.Time()) {
 		return 0.0
 	}
 	dur := last.Time().Sub(first.Time())
-
 	return dur.Seconds()
 }
 
 // Elevations returns a slice with the elevations in a GPX segment.
-func (seg *Trkseg) Elevations() []float64 {
-	elevations := make([]float64, len(seg.Points))
-	for i, trkpt := range seg.Points {
-		elevations[i] = trkpt.Ele
+func (w Waypoints) Elevations() []float64 {
+	elevations := make([]float64, len(w))
+	for i := range w {
+		elevations[i] = w[i].Ele
 	}
 	return elevations
 }
 
 // UphillDownhill returns uphill and dowhill in a GPX segment.
-func (seg *Trkseg) UphillDownhill() *UphillDownhill {
-	if len(seg.Points) == 0 {
+func (w Waypoints) UphillDownhill() *UphillDownhill {
+	if len(w) == 0 {
 		return nil
 	}
 
-	elevations := seg.Elevations()
-
-	uphill, downhill := CalcUphillDownhill(elevations)
+	uphill, downhill := calcUphillDownhill(w.Elevations())
 
 	return &UphillDownhill{Uphill: uphill, Downhill: downhill}
 }
 
-// Split splits a GPX segment at point index pt. Point pt remains in
-// first part.
-func (seg *Trkseg) Split(pt int) (*Trkseg, *Trkseg) {
-	pts1 := seg.Points[:pt+1]
-	pts2 := seg.Points[pt+1:]
-
-	return &Trkseg{Points: pts1}, &Trkseg{Points: pts2}
-}
-
-// Join concatenates to GPX segments.
-func (seg *Trkseg) Join(seg2 *Trkseg) {
-	seg.Points = append(seg.Points, seg2.Points...)
-}
-
 // LocationAt returns the GpxWpt at a given time.
-func (seg *Trkseg) LocationAt(t time.Time) int {
-	lenPts := len(seg.Points)
+func (w Waypoints) LocationAt(t time.Time) int {
+	lenPts := len(w)
 	if lenPts == 0 {
 		return -1
 	}
-	firstT := seg.Points[0]
-	lastT := seg.Points[lenPts-1]
+	firstT := w[0]
+	lastT := w[lenPts-1]
 	if firstT.Time().Equal(lastT.Time()) || firstT.Time().After(lastT.Time()) {
 		return -1
 	}
 
-	for i := 0; i < len(seg.Points); i++ {
-		pt := seg.Points[i]
+	for i := 0; i < len(w); i++ {
+		pt := w[i]
 		if t.Before(pt.Time()) {
 			return i
 		}
@@ -808,7 +788,7 @@ func (seg *Trkseg) LocationAt(t time.Time) int {
 }
 
 // MovingData returns the moving data of a GPX segment.
-func (seg *Trkseg) MovingData() *MovingData {
+func (w Waypoints) MovingData() *MovingData {
 	var (
 		movingTime      float64
 		stoppedTime     float64
@@ -818,9 +798,9 @@ func (seg *Trkseg) MovingData() *MovingData {
 
 	var speedsDistances []SpeedsAndDistances
 
-	for i := 1; i < len(seg.Points); i++ {
-		prev := &seg.Points[i-1]
-		pt := &seg.Points[i]
+	for i := 1; i < len(w); i++ {
+		prev := &w[i-1]
+		pt := &w[i]
 
 		dist := pt.Distance3D(prev)
 
@@ -846,7 +826,7 @@ func (seg *Trkseg) MovingData() *MovingData {
 
 	var maxSpeed float64
 	if len(speedsDistances) > 0 {
-		maxSpeed = CalcMaxSpeed(speedsDistances)
+		maxSpeed = calcMaxSpeed(speedsDistances)
 	}
 
 	return &MovingData{
@@ -856,6 +836,21 @@ func (seg *Trkseg) MovingData() *MovingData {
 		stoppedDistance,
 		maxSpeed,
 	}
+}
+
+// Center returns the center of a GPX route.
+func (w Waypoints) Center() (lat, lon float64) {
+	if len(w) == 0 {
+		return 0, 0
+	}
+
+	for _, pt := range w {
+		lat += pt.Lat
+		lon += pt.Lon
+	}
+
+	n := float64(len(w))
+	return lat / n, lon / n
 }
 
 /*==========================================================*/
@@ -899,12 +894,12 @@ func (pt *Wpt) SpeedBetween(pt2 *Wpt, threeD bool) float64 {
 
 // Distance2D returns the 2D distance of two GpxWpts.
 func (pt *Wpt) Distance2D(pt2 *Wpt) float64 {
-	return Distance2D(pt.Lat, pt.Lon, pt2.Lat, pt2.Lon, false)
+	return distance(pt.Lat, pt.Lon, 0.0, pt2.Lat, pt2.Lon, 0.0, false, false)
 }
 
 // Distance3D returns the 3D distance of two GpxWpts.
 func (pt *Wpt) Distance3D(pt2 *Wpt) float64 {
-	return Distance3D(pt.Lat, pt.Lon, pt.Ele, pt2.Lat, pt2.Lon, pt2.Ele, false)
+	return distance(pt.Lat, pt.Lon, pt.Ele, pt2.Lat, pt2.Lon, pt2.Ele, true, false)
 }
 
 // MaxDilutionOfPrecision returns the dilution precision of a GpxWpt.
@@ -914,30 +909,13 @@ func (pt *Wpt) MaxDilutionOfPrecision() float64 {
 
 /*==========================================================*/
 
-// Length returns the length of a GPX route.
-func (rte *Rte) Length() float64 {
-	return Length2D(rte.RoutePoints)
+// Split splits a GPX segment at point index i. Point i remains in
+// first part.
+func (seg *Trkseg) Split(i int) (*Trkseg, *Trkseg) {
+	return &Trkseg{Waypoints: seg.Waypoints[:i+1]}, &Trkseg{Waypoints: seg.Waypoints[i+1:]}
 }
 
-// Center returns the center of a GPX route.
-func (rte *Rte) Center() (float64, float64) {
-	lenRtePts := len(rte.RoutePoints)
-	if lenRtePts == 0 {
-		return 0.0, 0.0
-	}
-
-	var (
-		sumLat float64
-		sumLon float64
-	)
-
-	for _, pt := range rte.RoutePoints {
-		sumLat += pt.Lat
-		sumLon += pt.Lon
-	}
-
-	n := float64(lenRtePts)
-	return sumLat / n, sumLon / n
+// Join concatenates to GPX segments.
+func (seg *Trkseg) Join(seg2 *Trkseg) {
+	seg.Waypoints = append(seg.Waypoints, seg2.Waypoints...)
 }
-
-/*==========================================================*/

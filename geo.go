@@ -33,36 +33,8 @@ func HaversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return d
 }
 
-func length(locs []Wpt, threeD bool) float64 {
-	var previousLoc *Wpt
-	var res float64
-	for k, v := range locs {
-		if k > 0 {
-			previousLoc = &locs[k-1]
-			var d float64
-			if threeD {
-				d = v.Distance3D(previousLoc)
-			} else {
-				d = v.Distance2D(previousLoc)
-			}
-			res += d
-		}
-	}
-	return res
-}
-
-// Length2D returns the 2D length of a given Waypoints array
-func Length2D(locs []Wpt) float64 {
-	return length(locs, false)
-}
-
-// Length3D returns the 3D length of a given Waypoints array
-func Length3D(locs []Wpt) float64 {
-	return length(locs, true)
-}
-
-// CalcMaxSpeed calculates the max speed
-func CalcMaxSpeed(speedsDistances []SpeedsAndDistances) float64 {
+// calcMaxSpeed calculates the max speed
+func calcMaxSpeed(speedsDistances []SpeedsAndDistances) float64 {
 	lenArrs := len(speedsDistances)
 
 	if len(speedsDistances) < 20 {
@@ -105,8 +77,8 @@ func CalcMaxSpeed(speedsDistances []SpeedsAndDistances) float64 {
 	return speedsSorted[maxIdx]
 }
 
-// CalcUphillDownhill calculates uphill/downhill data
-func CalcUphillDownhill(elevations []float64) (float64, float64) {
+// calcUphillDownhill calculates uphill/downhill data
+func calcUphillDownhill(elevations []float64) (float64, float64) {
 	elevsLen := len(elevations)
 	if elevsLen == 0 {
 		return 0.0, 0.0

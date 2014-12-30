@@ -88,7 +88,7 @@ func TestTimeBoundsSeg(t *testing.T) {
 		EndTime:   time.Date(2012, 3, 17, 12, 47, 23, 0, time.UTC),
 	}
 
-	if !timeBoundsE.Equals(timeBoundsA) {
+	if timeBoundsE != *timeBoundsA {
 		t.Errorf("TimeBounds expected: %s, actual: %s", timeBoundsE.String(), timeBoundsA.String())
 	}
 }
@@ -100,7 +100,7 @@ func TestBoundsSeg(t *testing.T) {
 		MaxLon: 13.4571944922, MinLon: 13.4567520116,
 	}
 
-	if !boundsE.Equals(boundsA) {
+	if boundsE != *boundsA {
 		t.Errorf("Bounds expected: %s, actual: %s", boundsE.String(), boundsA.String())
 	}
 }
@@ -112,7 +112,7 @@ func TestBoundsGpx(t *testing.T) {
 		MaxLon: 13.4571944922, MinLon: 13.4567520116,
 	}
 
-	if !boundsE.Equals(boundsA) {
+	if boundsE != *boundsA {
 		t.Errorf("Bounds expected: %s, actual: %s", boundsE.String(), boundsA.String())
 	}
 }
@@ -141,7 +141,7 @@ func TestUphillDownHillSeg(t *testing.T) {
 		Uphill:   5.863000000000007,
 		Downhill: 1.5430000000000064}
 
-	if !updoE.Equals(updoA) {
+	if updoE != *updoA {
 		t.Errorf("UphillDownhill expected: %+v, actual: %+v", updoE, updoA)
 	}
 }
@@ -156,7 +156,7 @@ func TestMovingData(t *testing.T) {
 		MaxSpeed:        0.0,
 	}
 
-	if !movDataE.Equals(movDataA) {
+	if movDataE != *movDataA {
 		t.Errorf("Moving data expected: %+v, actual: %+v", movDataE, movDataA)
 	}
 }
@@ -167,7 +167,7 @@ func TestUphillDownhill(t *testing.T) {
 		Uphill:   5.863000000000007,
 		Downhill: 1.5430000000000064}
 
-	if !updoE.Equals(updoA) {
+	if updoE != *updoA {
 		t.Errorf("UphillDownhill expected: %+v, actual: %+v", updoE, updoA)
 	}
 }

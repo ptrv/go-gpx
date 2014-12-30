@@ -231,50 +231,13 @@ func getMinimaMaximaStart() *Bounds {
 
 /*==========================================================*/
 
-// Equals returns true if two TimeBounds objects are equal
-func (tb *TimeBounds) Equals(tb2 *TimeBounds) bool {
-	if tb.StartTime == tb2.StartTime && tb.EndTime == tb2.EndTime {
-		return true
-	}
-	return false
-}
-
 func (tb *TimeBounds) String() string {
 	return fmt.Sprintf("%+v, %+v", tb.StartTime, tb.EndTime)
-}
-
-// Equals returns true if two Bounds objects are equal
-func (b *Bounds) Equals(b2 *Bounds) bool {
-	if b.MinLon == b2.MinLon && b.MaxLat == b2.MaxLat &&
-		b.MinLon == b2.MinLon && b.MaxLon == b.MaxLon {
-		return true
-	}
-	return false
 }
 
 func (b *Bounds) String() string {
 	return fmt.Sprintf("Max: %+v, %+v Min: %+v, %+v",
 		b.MinLat, b.MinLon, b.MaxLat, b.MaxLon)
-}
-
-// Equals returns true if two MovingData objects are equal
-func (md *MovingData) Equals(md2 *MovingData) bool {
-	if md.MovingTime == md2.MovingTime &&
-		md.MovingDistance == md2.MovingDistance &&
-		md.StoppedTime == md2.StoppedTime &&
-		md.StoppedDistance == md2.StoppedDistance &&
-		md.MaxSpeed == md.MaxSpeed {
-		return true
-	}
-	return false
-}
-
-// Equals returns true if two UphillDownhill objects are equal
-func (ud *UphillDownhill) Equals(ud2 *UphillDownhill) bool {
-	if ud.Uphill == ud2.Uphill && ud.Downhill == ud2.Downhill {
-		return true
-	}
-	return false
 }
 
 /*==========================================================*/

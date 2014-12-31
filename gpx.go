@@ -219,6 +219,16 @@ func (b *Bounds) String() string {
 		b.MinLat, b.MinLon, b.MaxLat, b.MaxLon)
 }
 
+func (m *MovingData) merge(m2 *MovingData) {
+	m.MovingTime += m2.MovingTime
+	m.StoppedTime += m2.StoppedTime
+	m.MovingDistance += m2.MovingDistance
+	m.StoppedDistance += m2.StoppedDistance
+	if m2.MaxSpeed > m.MaxSpeed {
+		m.MaxSpeed = m2.MaxSpeed
+	}
+}
+
 /*==========================================================*/
 
 // NewGpx creates and returns a new Gpx objects.
@@ -327,33 +337,11 @@ func (g *Gpx) Bounds() *Bounds {
 
 // MovingData returns the moving data for all tracks in a Gpx.
 func (g *Gpx) MovingData() *MovingData {
-	var (
-		movingTime      float64
-		stoppedTime     float64
-		movingDistance  float64
-		stoppedDistance float64
-		maxSpeed        float64
-	)
-
+	m := &MovingData{}
 	for _, trk := range g.Tracks {
-		md := trk.MovingData()
-		movingTime += md.MovingTime
-		stoppedTime += md.StoppedTime
-		movingDistance += md.MovingDistance
-		stoppedDistance += md.StoppedDistance
-
-		if md.MaxSpeed > maxSpeed {
-			maxSpeed = md.MaxSpeed
-		}
+		m.merge(trk.MovingData())
 	}
-	return &MovingData{
-		MovingTime:      movingTime,
-		MovingDistance:  movingDistance,
-		StoppedTime:     stoppedTime,
-		StoppedDistance: stoppedDistance,
-		MaxSpeed:        maxSpeed,
-	}
-
+	return m
 }
 
 // Split splits the Gpx segment segNo in a given track trackNo at
@@ -500,32 +488,11 @@ func (trk *Trk) JoinNext(segNo int) {
 
 // MovingData returns the moving data of a GPX track.
 func (trk *Trk) MovingData() *MovingData {
-	var (
-		movingTime      float64
-		stoppedTime     float64
-		movingDistance  float64
-		stoppedDistance float64
-		maxSpeed        float64
-	)
-
+	m := &MovingData{}
 	for _, seg := range trk.Segments {
-		md := seg.MovingData()
-		movingTime += md.MovingTime
-		stoppedTime += md.StoppedTime
-		movingDistance += md.MovingDistance
-		stoppedDistance += md.StoppedDistance
-
-		if md.MaxSpeed > maxSpeed {
-			maxSpeed = md.MaxSpeed
-		}
+		m.merge(seg.MovingData())
 	}
-	return &MovingData{
-		MovingTime:      movingTime,
-		MovingDistance:  movingDistance,
-		StoppedTime:     stoppedTime,
-		StoppedDistance: stoppedDistance,
-		MaxSpeed:        maxSpeed,
-	}
+	return m
 }
 
 // Duration returns the duration of a GPX track.
@@ -709,13 +676,7 @@ func (w Waypoints) LocationAt(t time.Time) int {
 
 // MovingData returns the moving data of a GPX segment.
 func (w Waypoints) MovingData() *MovingData {
-	var (
-		movingTime      float64
-		stoppedTime     float64
-		movingDistance  float64
-		stoppedDistance float64
-	)
-
+	m := &MovingData{}
 	var speedsDistances []speedsAndDistances
 
 	for i := 1; i < len(w); i++ {
@@ -733,29 +694,22 @@ func (w Waypoints) MovingData() *MovingData {
 		}
 
 		if speedKmh <= defaultStoppedSpeedThreshold {
-			stoppedTime += timedelta.Seconds()
-			stoppedDistance += dist
+			m.StoppedTime += timedelta.Seconds()
+			m.StoppedDistance += dist
 		} else {
-			movingTime += timedelta.Seconds()
-			movingDistance += dist
+			m.MovingTime += timedelta.Seconds()
+			m.MovingDistance += dist
 
 			sd := speedsAndDistances{dist / timedelta.Seconds(), dist}
 			speedsDistances = append(speedsDistances, sd)
 		}
 	}
 
-	var maxSpeed float64
 	if len(speedsDistances) > 0 {
-		maxSpeed = calcMaxSpeed(speedsDistances)
+		m.MaxSpeed = calcMaxSpeed(speedsDistances)
 	}
 
-	return &MovingData{
-		movingTime,
-		stoppedTime,
-		movingDistance,
-		stoppedDistance,
-		maxSpeed,
-	}
+	return m
 }
 
 // Center returns the center of a GPX route.

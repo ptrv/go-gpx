@@ -184,25 +184,25 @@ type LocationsResultPair struct {
 
 /*==========================================================*/
 
-// Parse parses a GPX file and return a Gpx object.
-func Parse(gpxPath string) (*Gpx, error) {
-	gpxFile, err := os.Open(gpxPath)
-	if err != nil {
-		// fmt.Println("Error opening file: ", err)
-		return nil, err
-	}
-	defer gpxFile.Close()
-
-	b, err := ioutil.ReadAll(gpxFile)
-
-	if err != nil {
-		// fmt.Println("Error reading file: ", err)
-		return nil, err
-	}
+// Parse parses a GPX reader and return a Gpx object.
+func Parse(r io.Reader) (*Gpx, error) {
 	g := NewGpx()
-	xml.Unmarshal(b, &g)
-
+	d := xml.NewDecoder(r)
+	err := d.Decode(g)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse gpx data: %v", err)
+	}
 	return g, nil
+}
+
+// ParseFile reads a GPX file and parses it.
+func ParseFile(filepath string) (*Gpx, error) {
+	f, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return Parse(f)
 }
 
 /*==========================================================*/

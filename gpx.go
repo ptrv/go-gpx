@@ -220,7 +220,7 @@ func toXML(n interface{}) []byte {
 	return content
 }
 
-func getMinimaMaximaStart() *Bounds {
+func maxBounds() *Bounds {
 	return &Bounds{
 		MaxLat: -math.MaxFloat64,
 		MinLat: math.MaxFloat64,
@@ -233,6 +233,13 @@ func getMinimaMaximaStart() *Bounds {
 
 func (tb *TimeBounds) String() string {
 	return fmt.Sprintf("%+v, %+v", tb.StartTime, tb.EndTime)
+}
+
+func (b *Bounds) merge(b2 *Bounds) {
+	b.MaxLat = math.Max(b.MaxLat, b2.MaxLat)
+	b.MinLat = math.Min(b.MinLat, b2.MinLat)
+	b.MaxLon = math.Max(b.MaxLon, b2.MaxLon)
+	b.MinLon = math.Min(b.MinLon, b2.MinLon)
 }
 
 func (b *Bounds) String() string {
@@ -343,15 +350,11 @@ func (g *Gpx) TimeBounds() *TimeBounds {
 
 // Bounds returns the bounds of all tracks in a Gpx.
 func (g *Gpx) Bounds() *Bounds {
-	minmax := getMinimaMaximaStart()
+	b := maxBounds()
 	for _, trk := range g.Tracks {
-		bnds := trk.Bounds()
-		minmax.MaxLat = math.Max(bnds.MaxLat, minmax.MaxLat)
-		minmax.MinLat = math.Min(bnds.MinLat, minmax.MinLat)
-		minmax.MaxLon = math.Max(bnds.MaxLon, minmax.MaxLon)
-		minmax.MinLon = math.Min(bnds.MinLon, minmax.MinLon)
+		b.merge(trk.Bounds())
 	}
-	return minmax
+	return b
 }
 
 // MovingData returns the moving data for all tracks in a Gpx.
@@ -496,15 +499,11 @@ func (trk *Trk) TimeBounds() *TimeBounds {
 
 // Bounds returns the bounds of a GPX track.
 func (trk *Trk) Bounds() *Bounds {
-	minmax := getMinimaMaximaStart()
+	b := maxBounds()
 	for _, seg := range trk.Segments {
-		bnds := seg.Bounds()
-		minmax.MaxLat = math.Max(bnds.MaxLat, minmax.MaxLat)
-		minmax.MinLat = math.Min(bnds.MinLat, minmax.MinLat)
-		minmax.MaxLon = math.Max(bnds.MaxLon, minmax.MaxLon)
-		minmax.MinLon = math.Min(bnds.MinLon, minmax.MinLon)
+		b.merge(seg.Bounds())
 	}
-	return minmax
+	return b
 }
 
 // Split splits a GPX segment at a point number ptNo in a GPX track.
@@ -670,14 +669,14 @@ func (seg *Trkseg) TimeBounds() *TimeBounds {
 
 // Bounds returns the bounds of a GPX segment.
 func (seg *Trkseg) Bounds() *Bounds {
-	minmax := getMinimaMaximaStart()
-	for _, pt := range seg.Points {
-		minmax.MaxLat = math.Max(pt.Lat, minmax.MaxLat)
-		minmax.MinLat = math.Min(pt.Lat, minmax.MinLat)
-		minmax.MaxLon = math.Max(pt.Lon, minmax.MaxLon)
-		minmax.MinLon = math.Min(pt.Lon, minmax.MinLon)
+	b := maxBounds()
+	for _, pt := range w {
+		b.merge(&Bounds{
+			MaxLat: pt.Lat, MinLat: pt.Lat,
+			MaxLon: pt.Lon, MinLon: pt.Lon,
+		})
 	}
-	return minmax
+	return b
 }
 
 // Speed returns the speed at point number in a GPX segment.

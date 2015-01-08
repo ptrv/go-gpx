@@ -21,7 +21,7 @@ func main() {
 	}
 
 	gpxFileArg := args[0]
-	gpxFile, err := gpx.Parse(gpxFileArg)
+	gpxFile, err := gpx.ParseFile(gpxFileArg)
 
 	if err != nil {
 		fmt.Println("Error opening gpx file: ", err)
@@ -55,17 +55,13 @@ func main() {
 
 	fmt.Printf("\tMax speed: %fm/s = %fkm/h\n", md.MaxSpeed, md.MaxSpeed*60*60/1000.0)
 
-	updo := gpxFile.UphillDownhill()
-	if updo != nil {
-		fmt.Println("\tTotal uphill: ", updo.Uphill)
-		fmt.Println("\tTotal downhill: ", updo.Downhill)
-	}
+	uphill, downhill := gpxFile.UphillDownhill()
+	fmt.Println("\tTotal uphill: ", uphill)
+	fmt.Println("\tTotal downhill: ", downhill)
 
-	timeBounds := gpxFile.TimeBounds()
-	if timeBounds != nil {
-		fmt.Println("\tStarted: ", timeBounds.StartTime)
-		fmt.Println("\tEnded: ", timeBounds.EndTime)
-	}
+	start, end := gpxFile.TimeBounds()
+	fmt.Println("\tStarted: ", start)
+	fmt.Println("\tEnded: ", end)
 
 	fmt.Println()
 }

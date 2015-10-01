@@ -44,6 +44,20 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseNonUtf8(t *testing.T) {
+	g2, err := ParseFile("testdata/file2.gpx")
+
+	if err != nil {
+		t.Error("Error parsing GPX file: ", err)
+	}
+
+	timestampA := g2.Metadata.Timestamp
+	timestampE := "2012-03-17T15:44:18Z"
+	if timestampA != timestampE {
+		t.Errorf("timestamp expected: %s, actual: %s", timestampE, timestampA)
+	}
+}
+
 func TestLength2DSeg(t *testing.T) {
 	lengthA := g.Tracks[0].Segments[0].Length2D()
 	lengthE := 56.77577732775905

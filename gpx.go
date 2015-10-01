@@ -13,6 +13,8 @@ import (
 	"math"
 	"os"
 	"time"
+
+	"golang.org/x/net/html/charset"
 )
 
 /*==========================================================*/
@@ -173,6 +175,7 @@ type speedsAndDistances struct {
 func Parse(r io.Reader) (*Gpx, error) {
 	g := NewGpx()
 	d := xml.NewDecoder(r)
+	d.CharsetReader = charset.NewReaderLabel
 	err := d.Decode(g)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse gpx data: %v", err)

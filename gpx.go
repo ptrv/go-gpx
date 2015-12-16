@@ -219,7 +219,7 @@ func (b *Bounds) merge(b2 *Bounds) {
 }
 
 func (b *Bounds) String() string {
-	return fmt.Sprintf("Max: %+v, %+v Min: %+v, %+v",
+	return fmt.Sprintf("Min: %+v, %+v Max: %+v, %+v",
 		b.MinLat, b.MinLon, b.MaxLat, b.MaxLon)
 }
 

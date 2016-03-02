@@ -409,6 +409,17 @@ func (g *Gpx) ToXML() []byte {
 	return buffer.Bytes()
 }
 
+// SimplifyTracks recursively removes track points that lie <= maxDist meters beneath straight track segments (Ramer–Douglas–Peucker algorithm)
+func (g *Gpx) SimplifyTracks(maxDist float64) {
+	var newTracks []Trk
+	for _, trk := range g.Tracks {
+		tt := trk
+		tt.simplify(maxDist)
+		newTracks = append(newTracks, tt)
+	}
+	g.Tracks = newTracks
+}
+
 /*==========================================================*/
 
 // Length2D returns the 2D length of a GPX track.
@@ -535,6 +546,14 @@ func (trk *Trk) LocationAt(t time.Time) []Wpt {
 		}
 	}
 	return results
+}
+
+func (trk *Trk) simplify(maxDist float64) {
+	var newSegs []Trkseg
+	for _, seg := range trk.Segments {
+		newSegs = append(newSegs, seg.simplify(maxDist))
+	}
+	trk.Segments = newSegs
 }
 
 /*==========================================================*/
@@ -738,6 +757,10 @@ func (w Waypoints) Center() (lat, lon float64) {
 	return lat / n, lon / n
 }
 
+func (w Waypoints) simplify(maxDist float64) Waypoints {
+	return SimplifyPolyline(w, maxDist)
+}
+
 /*==========================================================*/
 
 // Time returns a timestamp string as Time object.
@@ -807,4 +830,8 @@ func (seg *Trkseg) Split(i int) (*Trkseg, *Trkseg) {
 // Join concatenates to GPX segments.
 func (seg *Trkseg) Join(seg2 *Trkseg) {
 	seg.Waypoints = append(seg.Waypoints, seg2.Waypoints...)
+}
+
+func (seg Trkseg) simplify(maxDist float64) Trkseg {
+	return Trkseg{Waypoints: seg.Waypoints.simplify(maxDist)}
 }

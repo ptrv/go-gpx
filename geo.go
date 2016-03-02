@@ -151,3 +151,65 @@ func ElevationAngle(loc1, loc2 *Wpt, radians bool) float64 {
 
 	return 180 * angle / math.Pi
 }
+
+// DistanceFromLine calculates the distance of 'point' from the line 'linePoint1'-'linePoint2'
+func DistanceFromLine(point, linePoint1, linePoint2 Wpt) float64 {
+	d := linePoint1.Distance2D(&linePoint2)
+	d1 := linePoint1.Distance2D(&point)
+	if d <= 0.0 {
+		return d1
+	}
+	d2 := linePoint2.Distance2D(&point)
+	s := 0.5 * (d + d1 + d2)
+	return 2.0 * math.Sqrt(math.Abs(s*(s-d)*(s-d1)*(s-d2))) / d
+}
+
+// LineEquationCoefficients computes the coefficinets a, b, c of the line equation lat * a + lon * b + c = 0 for the line from p1 to p2
+func LineEquationCoefficients(p1, p2 Wpt) (float64, float64, float64) {
+	dLon := p1.Lon - p2.Lon
+	if dLon == 0 {
+		// vertical line
+		return 0.0, 1.0, -p1.Lon
+	}
+	dLat := p1.Lat - p2.Lat
+	a := dLat / dLon
+	b := p1.Lat - p1.Lon*a
+	return 1.0, -a, -b
+}
+
+// SimplifyPolyline performs the Ramer-Douglas-Peucker algorithm for polyline simplification
+func SimplifyPolyline(points Waypoints, maxDist float64) Waypoints {
+	lenPoints := len(points)
+	if lenPoints < 3 {
+		return points
+	}
+
+	begin, end := points[0], points[lenPoints-1]
+
+	// approximatively determine the point with max distance from the line begin-end
+	a, b, c := LineEquationCoefficients(begin, end)
+	approxMaxDist := -1.0
+	approxMaxDistIndex := -1
+	for i, p := range points {
+		d := math.Abs(a*p.Lat + b*p.Lon + c)
+		if d > approxMaxDist {
+			approxMaxDist = d
+			approxMaxDistIndex = i
+		}
+	}
+
+	// the begin or end are the points with max distance => must be a straight line
+	if approxMaxDistIndex == 0 || approxMaxDistIndex == lenPoints-1 {
+		return Waypoints{begin, end}
+	}
+
+	// compute the real distance
+	realMaxDist := DistanceFromLine(points[approxMaxDistIndex], begin, end)
+	if realMaxDist < maxDist {
+		return Waypoints{begin, end}
+	}
+
+	points1 := SimplifyPolyline(points[:approxMaxDistIndex+1], maxDist)
+	points2 := SimplifyPolyline(points[approxMaxDistIndex:], maxDist)[1:]
+	return append(points1, points2...)
+}
